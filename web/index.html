@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sala Automática</title>
+<style>
+  :root { --bg:#111418; --card:#1a1f26; --line:#2a313b; --txt:#e8ecf1; --mut:#8a94a3;
+          --ar:#e5484d; --ok:#30a46c; --acc:#3e8ef7; --warn:#f5a524; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.4 system-ui, sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
+  h1 { font-size:17px; margin:0 12px 0 0; font-weight:600; }
+  .tally { padding:6px 12px; border-radius:6px; background:var(--ar); font-weight:600; }
+  .pill { padding:4px 10px; border-radius:99px; border:1px solid var(--line); color:var(--mut); font-size:13px; }
+  .pill.on { color:#fff; border-color:var(--ok); background:#1d3b2c; }
+  .pill.sim { color:var(--warn); border-color:var(--warn); }
+  main { display:grid; grid-template-columns: 2fr 1fr; gap:16px; padding:16px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); margin:0 0 12px; font-weight:600; }
+  button { background:#252c36; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:8px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button.danger { background:#3a1d1f; border-color:var(--ar); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .lugares { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px; }
+  .lugar { border:1px solid var(--line); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .lugar.ativo { border-color:var(--ar); box-shadow: inset 0 0 0 1px var(--ar); }
+  .lugar .nome { font-weight:600; display:flex; justify-content:space-between; }
+  .lugar .canal { color:var(--mut); font-weight:400; font-size:13px; }
+  .barra { height:8px; background:#0c0f12; border-radius:4px; overflow:hidden; position:relative; }
+  .barra i { display:block; height:100%; background:var(--ok); width:0; transition:width .15s; }
+  .barra b { position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--warn); }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg button { border:0; border-radius:0; }
+  .seg button.sel { background:var(--acc); color:#fff; }
+  .cam { border-top:1px solid var(--line); padding-top:12px; margin-top:12px; }
+  .cam:first-of-type { border-top:0; margin-top:0; padding-top:0; }
+  .joy { display:grid; grid-template-columns:repeat(3, 44px); gap:4px; }
+  .joy button { padding:10px 0; }
+  .presets { display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; }
+  .presets button { padding:6px 0; font-size:13px; }
+  .presets button.atual { border-color:var(--ok); color:var(--ok); }
+  #eventos { font:12px/1.5 ui-monospace, monospace; color:var(--mut); max-height:260px; overflow:auto; margin:0; padding:0; list-style:none; }
+  .erro { color:var(--ar); font-size:12px; }
+  label { color:var(--mut); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sala Automática</h1>
+  <span class="tally" id="tally">NO AR: —</span>
+  <span class="seg" id="modo">
+    <button data-modo="auto">Automático</button>
+    <button data-modo="manual">Manual</button>
+  </span>
+  <button class="primary" id="iniciar">Iniciar sessão</button>
+  <button class="danger" id="encerrar">Encerrar</button>
+  <span class="pill" id="p-obs">OBS</span>
+  <span class="pill" id="p-rec">● Gravando</span>
+  <span class="pill" id="p-live">● Ao vivo</span>
+  <span class="pill sim" id="p-sim" hidden>SIMULAÇÃO</span>
+</header>
+
+<main>
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <section>
+      <div class="row" style="justify-content:space-between; margin-bottom:12px;">
+        <h2 style="margin:0">Lugares (microfones)</h2>
+        <button id="geral">Plano geral</button>
+      </div>
+      <div class="lugares" id="lugares"></div>
+      <p id="dica-sim" hidden style="color:var(--mut); font-size:13px; margin:12px 0 0;">
+        Simulação: clique em <b>Falar</b> para fingir que aquela pessoa está falando. Clique de novo para silenciar.
+      </p>
+    </section>
+    <section>
+      <h2>Registro</h2>
+      <ul id="eventos"></ul>
+    </section>
+  </div>
+
+  <section>
+    <h2>Câmeras</h2>
+    <div id="cameras"></div>
+    <p style="color:var(--mut); font-size:12px; margin:12px 0 0;">
+      Segure as setas para mover. Para gravar um preset: posicione e clique em <b>Salvar</b>, depois no número.
+    </p>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const api = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body || {}) }).then(r => r.json()).catch(() => null);
+
+let falando = null, salvando = {}, montado = false;
+
+function montar(e) {
+  $('#p-sim').hidden = !e.simulacao;
+  $('#dica-sim').hidden = !e.simulacao;
+  $('#lugares').innerHTML = e.lugares.map(l => `
+    <div class="lugar" data-nome="${l.nome}">
+      <div class="nome">${l.nome}<span class="canal">canal ${l.canal}</span></div>
+      <div class="barra"><i></i><b></b></div>
+      <div class="row">
+        <button data-ar="${l.nome}">Pôr no ar</button>
+        ${e.simulacao ? `<button data-falar="${l.canal}">Falar</button>` : ''}
+      </div>
+    </div>`).join('');
+  $('#cameras').innerHTML = e.cameras.map(c => `
+    <div class="cam" data-cam="${c.nome}">
+      <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+        <b>${c.nome}</b><span class="pill">preset <span class="pr">—</span></span>
+      </div>
+      <div class="row" style="align-items:flex-start; gap:16px;">
+        <div class="joy">
+          <span></span><button data-mv="0,1">▲</button><span></span>
+          <button data-mv="-1,0">◀</button><button data-mv="0,0">■</button><button data-mv="1,0">▶</button>
+          <span></span><button data-mv="0,-1">▼</button><span></span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <button data-zoom="1">Zoom +</button>
+          <button data-zoom="-1">Zoom −</button>
+          <button data-salvar>Salvar</button>
+        </div>
+      </div>
+      <div class="presets" style="margin-top:8px;">
+        ${[1,2,3,4,5,6,7,8].map(n => `<button data-preset="${n}">${n}</button>`).join('')}
+      </div>
+      <div class="erro"></div>
+    </div>`).join('');
+  montado = true;
+}
+
+function atualizar(e) {
+  if (!montado) montar(e);
+  $('#tally').textContent = 'NO AR: ' + e.no_ar;
+  document.querySelectorAll('#modo button').forEach(b => b.classList.toggle('sel', b.dataset.modo === e.modo));
+  $('#p-obs').classList.toggle('on', e.obs.conectado);
+  $('#p-obs').title = e.obs.erro || '';
+  $('#p-rec').classList.toggle('on', e.obs.gravando);
+  $('#p-live').classList.toggle('on', e.obs.transmitindo);
+  const pct = db => Math.max(0, Math.min(100, (db + 80) / 80 * 100));
+  e.lugares.forEach(l => {
+    const el = document.querySelector(`.lugar[data-nome="${CSS.escape(l.nome)}"]`);
+    if (!el) return;
+    el.classList.toggle('ativo', l.nome === e.lugar_ativo);
+    el.querySelector('.barra i').style.width = pct(l.db) + '%';
+    el.querySelector('.barra i').style.background = l.db >= e.limiar_db ? 'var(--ok)' : '#3b4450';
+    el.querySelector('.barra b').style.left = pct(e.limiar_db) + '%';
+    const f = el.querySelector('[data-falar]');
+    if (f) f.classList.toggle('primary', String(falando) === f.dataset.falar);
+  });
+  e.cameras.forEach(c => {
+    const el = document.querySelector(`.cam[data-cam="${CSS.escape(c.nome)}"]`);
+    if (!el) return;
+    el.querySelector('.pr').textContent = c.preset ?? '—';
+    el.querySelector('.pill').style.borderColor = c.no_ar ? 'var(--ar)' : '';
+    el.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('atual', String(c.preset) === b.dataset.preset));
+    el.querySelector('[data-salvar]').classList.toggle('primary', !!salvando[c.nome]);
+    el.querySelector('.erro').textContent = c.erro ? 'Erro: ' + c.erro : '';
+  });
+  $('#eventos').innerHTML = e.eventos.map(t => `<li>${t}</li>`).join('');
+}
+
+async function ciclo() {
+  try { atualizar(await (await fetch('/api/estado')).json()); } catch (_) {}
+  setTimeout(ciclo, 300);
+}
+
+document.addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button'); if (!b) return;
+  const cam = b.closest('.cam')?.dataset.cam;
+  if (b.dataset.modo) return api('/api/modo', { modo: b.dataset.modo });
+  if (b.dataset.ar) return api('/api/lugar/' + encodeURIComponent(b.dataset.ar));
+  if (b.id === 'geral') return api('/api/geral');
+  if (b.id === 'iniciar') return api('/api/sessao/iniciar');
+  if (b.id === 'encerrar') { if (confirm('Encerrar gravação e transmissão?')) api('/api/sessao/encerrar'); return; }
+  if (b.dataset.falar) {
+    const c = Number(b.dataset.falar);
+    falando = falando === c ? null : c;
+    return api('/api/simular/fala', { canal: falando });
+  }
+  if (b.dataset.salvar !== undefined) { salvando[cam] = !salvando[cam]; return; }
+  if (b.dataset.preset) {
+    const acao = salvando[cam] ? 'salvar' : 'chamar';
+    salvando[cam] = false;
+    return api(`/api/camera/${cam}/preset/${b.dataset.preset}/${acao}`);
+  }
+});
+
+// Movimento e zoom: enquanto o botão estiver pressionado
+function segurar(sel, iniciar, parar) {
+  document.addEventListener('pointerdown', ev => {
+    const b = ev.target.closest(sel); if (!b) return;
+    const cam = b.closest('.cam').dataset.cam;
+    iniciar(cam, b);
+    const solta = () => { parar(cam, b); window.removeEventListener('pointerup', solta); };
+    window.addEventListener('pointerup', solta);
+  });
+}
+segurar('[data-mv]',
+  (cam, b) => { const [pan, tilt] = b.dataset.mv.split(',').map(Number); api(`/api/camera/${cam}/mover`, { pan, tilt }); },
+  (cam) => api(`/api/camera/${cam}/mover`, { pan: 0, tilt: 0 }));
+segurar('[data-zoom]',
+  (cam, b) => api(`/api/camera/${cam}/zoom`, { direcao: Number(b.dataset.zoom) }),
+  (cam) => api(`/api/camera/${cam}/zoom`, { direcao: 0 }));
+
+ciclo();
+</script>
+</body>
+</html>

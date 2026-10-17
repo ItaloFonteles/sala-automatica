@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn>=0.29
+pyyaml>=6.0
+numpy>=1.26
+# Só para o modo real (não precisa para testar em simulação):
+sounddevice>=0.4.6
+obsws-python>=1.7
