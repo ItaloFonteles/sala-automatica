@@ -98,7 +98,9 @@ const api = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type
 let falando = null, salvando = {}, montado = false;
 
 function montar(e) {
-  $('#p-sim').hidden = !e.simulacao;
+  const simCam = e.simulado && e.simulado.cameras && !e.simulacao;
+  $('#p-sim').hidden = !(e.simulacao || simCam);
+  $('#p-sim').textContent = simCam ? 'CÂMERAS SIMULADAS' : 'SIMULAÇÃO';
   $('#dica-sim').hidden = !e.simulacao;
   $('#lugares').innerHTML = e.lugares.map(l => `
     <div class="lugar" data-nome="${l.nome}">

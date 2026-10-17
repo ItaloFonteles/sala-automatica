@@ -44,7 +44,16 @@ def _plano(d: dict, cameras: dict) -> Plano:
     return Plano(cena=d["cena"], camera=cam, preset=d.get("preset"))
 
 
+def partes_simuladas(cfg: dict, simulacao: bool) -> dict[str, bool]:
+    """Quais partes rodam simuladas. `simulacao = true` simula tudo; a seção
+    [simular] permite simular só uma parte (ex.: OBS e microfone reais,
+    câmeras simuladas)."""
+    s = cfg.get("simular", {})
+    return {parte: simulacao or bool(s.get(parte, False)) for parte in ("cameras", "obs", "audio")}
+
+
 def montar(cfg: dict, simulacao: bool):
+    sim = partes_simuladas(cfg, simulacao)
     cameras = {
         c["nome"]: ViscaCamera(
             nome=c["nome"],
@@ -52,19 +61,19 @@ def montar(cfg: dict, simulacao: bool):
             porta=int(c.get("porta", 52381)),
             protocolo=c.get("protocolo", "sony_udp"),
             endereco=int(c.get("endereco", 1)),
-            simulacao=simulacao,
+            simulacao=sim["cameras"],
         )
         for c in cfg["cameras"]
     }
     o = cfg.get("obs", {})
-    obs = ObsControle(o.get("host", "localhost"), int(o.get("porta", 4455)), o.get("senha", ""), simulacao)
+    obs = ObsControle(o.get("host", "localhost"), int(o.get("porta", 4455)), o.get("senha", ""), sim["obs"])
 
     lugares = [Lugar(l["nome"], int(l["canal"]), [_plano(p, cameras) for p in l["planos"]]) for l in cfg["lugares"]]
     if not lugares:
         raise ValueError("Cadastre pelo menos um lugar em [[lugares]].")
     a = cfg.get("audio", {})
     canais = int(a.get("canais", max(l.canal for l in lugares)))
-    if simulacao:
+    if sim["audio"]:
         medidor = MedidorSimulado(canais)
     else:
         disp = a.get("dispositivo", -1)
@@ -82,6 +91,7 @@ class Aplicacao:
     def __init__(self, caminho_config: str, forcar_simulacao: bool = False) -> None:
         cfg = carregar_config(caminho_config)
         self.simulacao = forcar_simulacao or bool(cfg.get("simulacao", False))
+        self.partes_simuladas = partes_simuladas(cfg, self.simulacao)
         self.diretor, self.cameras, self.obs, self.medidor = montar(cfg, self.simulacao)
         self.loop = asyncio.new_event_loop()
         self._thread: threading.Thread | None = None
@@ -115,7 +125,8 @@ class Aplicacao:
         d, obs = self.diretor, self.obs
         niveis = self.medidor.leitura()
         return {
-            "simulacao": self.simulacao,
+            "simulacao": isinstance(self.medidor, MedidorSimulado),
+            "simulado": self.partes_simuladas,
             "modo": d.modo,
             "no_ar": d.rotulo_no_ar,
             "cena": obs.cena_atual,

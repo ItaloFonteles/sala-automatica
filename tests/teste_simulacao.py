@@ -75,3 +75,53 @@ assert not any("Aviso" in x for x in ev), "apareceu aviso de movimento no ar"
 assert not movidos_no_ar, f"câmera movida no ar: {movidos_no_ar}"
 srv.shutdown(); app.parar()
 print("REGRESSÃO OK - nenhuma câmera se moveu no ar")
+
+# --- Voz real oscila entre as sílabas: a troca precisa acontecer mesmo assim
+import asyncio
+from salaauto.audio import MedidorNivel
+from salaauto.diretor import Diretor, Lugar, Plano
+from salaauto.obs import ObsControle
+from salaauto.visca import ViscaCamera
+
+
+class VozSilabada(MedidorNivel):
+    """Canal 1 alterna 0,15 s de voz (-28 dB) e 0,15 s de pausa (-55 dB)."""
+
+    def __init__(self):
+        super().__init__(1)
+        self.inicio = time.monotonic()
+        self.falando = True
+
+    def leitura(self):
+        if not self.falando:
+            return {1: -55.0}
+        fase = int((time.monotonic() - self.inicio) / 0.15) % 2
+        return {1: -28.0 if fase == 0 else -55.0}
+
+
+async def voz_silabada():
+    cams = {n: ViscaCamera(n, "0.0.0.0", simulacao=True) for n in ("cam1", "cam2")}
+    med = VozSilabada()
+    d = Diretor(
+        cams, ObsControle(simulacao=True), med,
+        [Lugar("Presidente", 1, [Plano("Cam2", "cam2", 1)])],
+        [Plano("Geral", "cam1", 1), Plano("Geral 2", "cam2", 8)],
+        {"limiar_db": -40, "tempo_minimo_fala_s": 1.0, "tempo_minimo_plano_s": 0.5,
+         "silencio_para_geral_s": 1.0, "tempo_assentamento_s": 0.1, "hold_s": 0.6},
+    )
+    await d.ir_para_geral("início")
+    tarefa = asyncio.create_task(d.rodar())
+    await asyncio.sleep(2.5)
+    falou = d.rotulo_no_ar
+    med.falando = False
+    await asyncio.sleep(2.5)
+    voltou = d.rotulo_no_ar
+    tarefa.cancel()
+    return falou, voltou
+
+
+falou, voltou = asyncio.run(voz_silabada())
+print("voz silabada ->", falou, "| silêncio ->", voltou)
+assert falou == "Presidente", "voz com pausas entre sílabas não levou ao ar"
+assert voltou == "Plano geral"
+print("VOZ REAL OK - pausas entre sílabas não atrapalham")

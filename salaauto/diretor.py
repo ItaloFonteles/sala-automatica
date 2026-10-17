@@ -63,6 +63,9 @@ class Diretor:
         self.tempo_plano_s = float(regras.get("tempo_minimo_plano_s", 4.0))
         self.silencio_geral_s = float(regras.get("silencio_para_geral_s", 6.0))
         self.assentamento_s = float(regras.get("tempo_assentamento_s", 1.2))
+        # "Hold": a voz oscila entre as sílabas; a pessoa continua "falando" até
+        # este tempo depois do último pico acima do limiar (como numa mesa de áudio).
+        self.hold_s = float(regras.get("hold_s", 0.6))
 
         self.modo = "auto"  # "auto" ou "manual"
         self.no_ar: Plano | None = None
@@ -74,6 +77,8 @@ class Diretor:
         self._candidato_desde = 0.0
         self._ultimo_corte = -1e9
         self._ultima_voz = -1e9
+        self._ultimo_pico: dict[int, float] = {}   # canal -> último instante acima do limiar
+        self._nivel_suave: dict[int, float] = {}   # canal -> nível com decaimento lento (dB)
         self._lock = asyncio.Lock()
 
     # ----------------------------------------------------------- utilidades
@@ -82,12 +87,21 @@ class Diretor:
         self.eventos.appendleft(linha)
         log.info(texto)
 
-    def _mais_alto(self, niveis: dict[int, float]) -> Lugar | None:
-        melhor, melhor_db = None, self.limiar_db
+    def _mais_alto(self, niveis: dict[int, float], agora: float | None = None) -> Lugar | None:
+        """Quem está falando: canais com pico recente (dentro do hold); entre eles,
+        o de maior nível suavizado (sobe na hora, desce devagar)."""
+        agora = time.monotonic() if agora is None else agora
+        melhor, melhor_db = None, -1e9
         for lugar in self.lugares:
             db = niveis.get(lugar.canal, -120.0)
-            if db >= melhor_db:
-                melhor, melhor_db = lugar, db
+            anterior = self._nivel_suave.get(lugar.canal, -120.0)
+            suave = db if db > anterior else anterior - 3.0  # decai ~30 dB/s a 10 leituras/s
+            self._nivel_suave[lugar.canal] = suave
+            if db >= self.limiar_db:
+                self._ultimo_pico[lugar.canal] = agora
+            ativo = agora - self._ultimo_pico.get(lugar.canal, -1e9) <= self.hold_s
+            if ativo and suave > melhor_db:
+                melhor, melhor_db = lugar, suave
         return melhor
 
     def _camera_no_ar(self) -> str | None:
@@ -184,7 +198,7 @@ class Diretor:
     # ------------------------------------------------------------ laço
     async def tick(self) -> None:
         agora = time.monotonic()
-        lugar = self._mais_alto(self.medidor.leitura())
+        lugar = self._mais_alto(self.medidor.leitura(), agora)
         if lugar is not None:
             self._ultima_voz = agora
         if lugar is not self._candidato:

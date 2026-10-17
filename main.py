@@ -23,6 +23,7 @@ def main() -> None:
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)-8s %(message)s", datefmt="%H:%M:%S")
+    logging.getLogger("obsws_python").setLevel(logging.WARNING)  # não mostrar a senha do OBS no log
 
     if args.listar_audio:
         from salaauto.audio import listar_dispositivos
@@ -41,7 +42,8 @@ def main() -> None:
             "\n  em outra janela. Feche a outra janela (ou use --porta 8081) e tente de novo.\n"
         )
     app.iniciar()
-    modo = "SIMULAÇÃO" if app.simulacao else "REAL"
+    sim = [p for p, v in app.partes_simuladas.items() if v]
+    modo = "SIMULAÇÃO" if len(sim) == 3 else ("REAL" if not sim else "MISTO - simulando: " + ", ".join(sim))
     print(f"\n  Sala Automática ({modo})")
     print(f"  Painel do operador: http://localhost:{args.porta}")
     print("  Para encerrar: feche esta janela ou aperte Ctrl+C\n")

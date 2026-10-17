@@ -75,6 +75,7 @@ Não funcionou um? Tente o outro. O painel mostra o erro em vermelho embaixo da 
 | Regra | Padrão | Quando mexer |
 |---|---|---|
 | `limiar_db` | -40 | Câmera troca com tosse/barulho → suba para -35. Não detecta voz baixa → desça para -45. A linha amarela na barra do painel mostra o limiar. |
+| `hold_s` | 0.6 | Câmera não troca porque a voz "falha" entre as sílabas → aumente para 0.8 |
 | `tempo_minimo_fala_s` | 1.5 | "Sim", "não" curtos trocando a câmera → aumente |
 | `tempo_minimo_plano_s` | 4 | Cortes rápidos demais → aumente |
 | `silencio_para_geral_s` | 6 | Volta ao geral cedo/tarde demais |

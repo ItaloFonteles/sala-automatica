@@ -25,7 +25,7 @@ protocolo = "sony_udp"
 [obs]
 host = "localhost"
 porta = 4455
-senha = "troque-esta-senha"
+senha = "sala2026"  # a mesma que você colocar no OBS
 
 # --- Áudio ----------------------------------------------------
 # dispositivo: número da placa (veja com: python main.py --listar-audio)
@@ -41,6 +41,7 @@ limiar_db = -40             # acima disso o microfone conta como "falando"
 tempo_minimo_fala_s = 1.5   # precisa falar isso antes de a câmera ir até ele
 tempo_minimo_plano_s = 4    # tempo mínimo de um plano antes de outro corte
 silencio_para_geral_s = 6   # silêncio total por isso -> plano geral
+hold_s = 0.6                # continua "falando" até 0,6 s após o último pico (pausas entre sílabas)
 tempo_assentamento_s = 1.2  # espera a câmera parar antes de cortar
 
 # --- Plano geral (sala toda) -----------------------------------

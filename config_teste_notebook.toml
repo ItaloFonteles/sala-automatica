@@ -1,0 +1,54 @@
+# ============================================================
+#  TESTE NO NOTEBOOK: OBS e microfone REAIS, câmeras SIMULADAS
+#  Fale perto do notebook -> o OBS corta para "Cam2" (Presidente).
+#  Fique em silêncio -> volta para o plano geral.
+# ============================================================
+
+simulacao = false
+
+[simular]
+cameras = true    # ainda sem câmera PTZ
+obs = false       # OBS de verdade
+audio = false     # microfone de verdade
+
+[[cameras]]
+nome = "cam1"
+ip = "192.168.1.101"
+
+[[cameras]]
+nome = "cam2"
+ip = "192.168.1.102"
+
+[obs]
+host = "localhost"
+porta = 4455
+senha = "sala2026"
+
+# Microfone (Realtek(R) Audio), MME  -> dispositivo 1 no seu notebook.
+# Se não detectar voz, rode "python main.py --listar-audio" e troque o número.
+[audio]
+dispositivo = 1
+canais = 1
+taxa = 48000
+
+[regras]
+limiar_db = -40             # silêncio do notebook medido em ~-55 dB; voz em -25 a -35 dB
+tempo_minimo_fala_s = 1.0
+tempo_minimo_plano_s = 3
+silencio_para_geral_s = 4
+hold_s = 0.6                # continua "falando" até 0,6 s após o último pico (pausas entre sílabas)
+tempo_assentamento_s = 1.0
+
+[plano_geral]
+planos = [
+  { cena = "Geral",   camera = "cam1", preset = 1 },
+  { cena = "Geral 2", camera = "cam2", preset = 8 },
+]
+
+[[lugares]]
+nome = "Presidente (microfone do notebook)"
+canal = 1
+planos = [
+  { cena = "Cam2", camera = "cam2", preset = 1 },
+  { cena = "Cam1", camera = "cam1", preset = 2 },
+]
