@@ -46,16 +46,18 @@ class Diretor:
         obs: ObsControle,
         medidor: MedidorNivel,
         lugares: list[Lugar],
-        plano_geral: Plano,
+        planos_geral: list[Plano],
         regras: dict | None = None,
     ) -> None:
         regras = regras or {}
+        if not planos_geral:
+            raise ValueError("Defina pelo menos um plano geral.")
         self.cameras = cameras
         self.obs = obs
         self.medidor = medidor
         self.lugares = lugares
         self.lugar_por_nome = {l.nome: l for l in lugares}
-        self.plano_geral = plano_geral
+        self.planos_geral = planos_geral
         self.limiar_db = float(regras.get("limiar_db", -40))
         self.tempo_fala_s = float(regras.get("tempo_minimo_fala_s", 1.5))
         self.tempo_plano_s = float(regras.get("tempo_minimo_plano_s", 4.0))
@@ -96,22 +98,32 @@ class Diretor:
             return False
         return self.cameras[plano.camera].ultimo_preset != plano.preset
 
-    def _escolher_plano(self, lugar: Lugar) -> Plano:
+    def _escolher_plano(self, planos: list[Plano]) -> Plano:
         # 1) já está no ar exatamente esse plano
-        for p in lugar.planos:
+        for p in planos:
             if p == self.no_ar:
                 return p
         # 2) um plano com câmera já posicionada e fora do ar (corte instantâneo)
         cam_ar = self._camera_no_ar()
-        for p in lugar.planos:
+        for p in planos:
             if p.camera != cam_ar and not self._precisa_mover(p):
                 return p
         # 3) qualquer plano cuja câmera esteja fora do ar
-        for p in lugar.planos:
+        for p in planos:
             if p.camera is None or p.camera != cam_ar:
                 return p
-        # 4) sem opção: usa o primeiro (vai precisar sair pelo plano geral)
-        return lugar.planos[0]
+        # 4) sem opção: usa o primeiro (vai precisar sair por um plano de transição)
+        return planos[0]
+
+    def _plano_transicao(self, camera_ocupada: str) -> Plano | None:
+        """Um plano geral em OUTRA câmera, para sair do ar antes de mover a câmera."""
+        for p in self.planos_geral:
+            if p.camera != camera_ocupada and not self._precisa_mover(p):
+                return p
+        for p in self.planos_geral:
+            if p.camera != camera_ocupada:
+                return p
+        return None
 
     # ------------------------------------------------------------- execução
     async def _posicionar(self, plano: Plano) -> None:
@@ -133,12 +145,16 @@ class Diretor:
             self.rotulo_no_ar = rotulo
             return
         if self._precisa_mover(plano) and plano.camera == self._camera_no_ar():
-            # A câmera que precisa se mover está no ar: sai pelo plano geral antes.
-            if self.plano_geral.camera != plano.camera and self.no_ar != self.plano_geral:
-                await self._posicionar(self.plano_geral)
-                await self._cortar(self.plano_geral, "Plano geral (transição)")
+            # A câmera que precisa se mover está no ar: corta antes para outra câmera.
+            transicao = self._plano_transicao(plano.camera)
+            if transicao is not None:
+                await self._posicionar(transicao)
+                await self._cortar(transicao, "Plano geral (transição)")
             else:
-                self._evento(f"Aviso: {plano.camera} vai se mover no ar (sem câmera livre)")
+                self._evento(
+                    f"Aviso: {plano.camera} vai se mover no ar. "
+                    "Cadastre um plano geral em outra câmera para evitar isso."
+                )
         await self._posicionar(plano)
         await self._cortar(plano, rotulo)
 
@@ -146,7 +162,7 @@ class Diretor:
     async def ir_para_lugar(self, nome: str, motivo: str = "manual") -> None:
         lugar = self.lugar_por_nome[nome]
         async with self._lock:
-            plano = self._escolher_plano(lugar)
+            plano = self._escolher_plano(lugar.planos)
             await self._levar_ao_ar(plano, lugar.nome)
             self.lugar_ativo = lugar
             if motivo != "auto":
@@ -154,7 +170,8 @@ class Diretor:
 
     async def ir_para_geral(self, motivo: str = "manual") -> None:
         async with self._lock:
-            await self._levar_ao_ar(self.plano_geral, "Plano geral")
+            plano = self._escolher_plano(self.planos_geral)
+            await self._levar_ao_ar(plano, "Plano geral")
             self.lugar_ativo = None
 
     def definir_modo(self, modo: str) -> None:

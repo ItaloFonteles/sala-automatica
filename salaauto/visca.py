@@ -7,7 +7,7 @@ Suporta três "sabores" de VISCA em rede, porque cada fabricante faz de um jeito
 - raw_udp  : comandos VISCA puros em UDP (ex.: PTZOptics porta 1259).
 - raw_tcp  : comandos VISCA puros em TCP (ex.: PTZOptics porta 5678, Lumens, Minrray).
 
-Se a câmera não responder, troque o protocolo/porta no config.yaml.
+Se a câmera não responder, troque o protocolo/porta no config.toml.
 """
 
 from __future__ import annotations

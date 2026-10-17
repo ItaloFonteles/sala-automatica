@@ -2,19 +2,21 @@
 
 Exemplos:
     python main.py --sim                 # testa sem câmera, sem microfone, sem OBS
-    python main.py                       # modo real, usando config.yaml
+    python main.py                       # modo real, usando config.toml
     python main.py --listar-audio        # mostra as placas de som e seus números
 """
 
 import argparse
 import logging
+import sys
 
-import uvicorn
+if sys.version_info < (3, 11):
+    sys.exit("A Sala Automática precisa do Python 3.11 ou mais novo.")
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Sala Automática - diretor de câmeras PTZ")
-    p.add_argument("--config", default="config.yaml", help="arquivo de configuração")
+    p.add_argument("--config", default="config.toml", help="arquivo de configuração")
     p.add_argument("--sim", action="store_true", help="força o modo simulação")
     p.add_argument("--porta", type=int, default=8080, help="porta do painel web")
     p.add_argument("--listar-audio", action="store_true", help="lista dispositivos de áudio e sai")
@@ -28,11 +30,28 @@ def main() -> None:
         print(listar_dispositivos())
         return
 
-    from salaauto.servidor import criar_app
+    from salaauto.servidor import Aplicacao, servir
 
-    app = criar_app(args.config, forcar_simulacao=args.sim)
-    print(f"\n  Painel do operador: http://localhost:{args.porta}\n")
-    uvicorn.run(app, host="0.0.0.0", port=args.porta, log_level="warning")
+    app = Aplicacao(args.config, forcar_simulacao=args.sim)
+    try:
+        servidor = servir(app, args.porta)
+    except OSError:
+        sys.exit(
+            f"\n  A porta {args.porta} já está em uso: a Sala Automática provavelmente já está aberta"
+            "\n  em outra janela. Feche a outra janela (ou use --porta 8081) e tente de novo.\n"
+        )
+    app.iniciar()
+    modo = "SIMULAÇÃO" if app.simulacao else "REAL"
+    print(f"\n  Sala Automática ({modo})")
+    print(f"  Painel do operador: http://localhost:{args.porta}")
+    print("  Para encerrar: feche esta janela ou aperte Ctrl+C\n")
+    try:
+        servidor.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        servidor.server_close()
+        app.parar()
 
 
 if __name__ == "__main__":

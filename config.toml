@@ -1,0 +1,105 @@
+# ============================================================
+#  SALA AUTOMÁTICA - configuração
+#  Exemplo: plenário de câmara municipal com 2 câmeras PTZ
+#  Linhas que começam com # são comentários.
+# ============================================================
+
+# true = testa tudo sem equipamento (câmeras, OBS e microfones simulados)
+simulacao = true
+
+# --- Câmeras PTZ (VISCA over IP) -----------------------------
+# protocolo: "sony_udp" (porta 52381) | "raw_udp" (ex. 1259) | "raw_tcp" (ex. 5678)
+[[cameras]]
+nome = "cam1"
+ip = "192.168.1.101"
+porta = 52381
+protocolo = "sony_udp"
+
+[[cameras]]
+nome = "cam2"
+ip = "192.168.1.102"
+porta = 52381
+protocolo = "sony_udp"
+
+# --- OBS Studio (Ferramentas > Configurações do servidor WebSocket)
+[obs]
+host = "localhost"
+porta = 4455
+senha = "troque-esta-senha"
+
+# --- Áudio ----------------------------------------------------
+# dispositivo: número da placa (veja com: python main.py --listar-audio)
+# -1 = placa padrão do Windows
+[audio]
+dispositivo = -1
+canais = 6
+taxa = 48000
+
+# --- Regras do diretor automático -----------------------------
+[regras]
+limiar_db = -40             # acima disso o microfone conta como "falando"
+tempo_minimo_fala_s = 1.5   # precisa falar isso antes de a câmera ir até ele
+tempo_minimo_plano_s = 4    # tempo mínimo de um plano antes de outro corte
+silencio_para_geral_s = 6   # silêncio total por isso -> plano geral
+tempo_assentamento_s = 1.2  # espera a câmera parar antes de cortar
+
+# --- Plano geral (sala toda) -----------------------------------
+# Cada "cena" deve existir no OBS com a fonte de vídeo (RTSP) da câmera certa.
+# Tenha um plano geral em cada câmera: assim, quando uma câmera precisa
+# se mover, o diretor corta antes para a outra e o público nunca vê o movimento.
+[plano_geral]
+planos = [
+  { cena = "Geral",   camera = "cam1", preset = 1 },
+  { cena = "Geral 2", camera = "cam2", preset = 8 },
+]
+
+# --- Lugares: cada microfone (canal) e como enquadrá-lo ----------
+# Dê 2 planos por lugar (um em cada câmera): o diretor usa a câmera
+# que NÃO está no ar, para nunca mostrar a câmera se movendo.
+[[lugares]]
+nome = "Presidente"
+canal = 1
+planos = [
+  { cena = "Cam2", camera = "cam2", preset = 1 },
+  { cena = "Cam1", camera = "cam1", preset = 2 },
+]
+
+[[lugares]]
+nome = "Secretário"
+canal = 2
+planos = [
+  { cena = "Cam2", camera = "cam2", preset = 2 },
+  { cena = "Cam1", camera = "cam1", preset = 3 },
+]
+
+[[lugares]]
+nome = "Vereador A"
+canal = 3
+planos = [
+  { cena = "Cam1", camera = "cam1", preset = 4 },
+  { cena = "Cam2", camera = "cam2", preset = 3 },
+]
+
+[[lugares]]
+nome = "Vereador B"
+canal = 4
+planos = [
+  { cena = "Cam1", camera = "cam1", preset = 5 },
+  { cena = "Cam2", camera = "cam2", preset = 4 },
+]
+
+[[lugares]]
+nome = "Vereador C"
+canal = 5
+planos = [
+  { cena = "Cam1", camera = "cam1", preset = 6 },
+  { cena = "Cam2", camera = "cam2", preset = 5 },
+]
+
+[[lugares]]
+nome = "Tribuna"
+canal = 6
+planos = [
+  { cena = "Cam2", camera = "cam2", preset = 6 },
+  { cena = "Cam1", camera = "cam1", preset = 7 },
+]

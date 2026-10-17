@@ -1,7 +1,6 @@
-fastapi>=0.110
-uvicorn>=0.29
-pyyaml>=6.0
+# O modo simulação NÃO precisa de nada daqui: roda só com o Python.
+# Instale isto apenas para usar câmera/microfone/OBS reais
+# (o arquivo instalar_modo_real.bat faz isso por você).
 numpy>=1.26
-# Só para o modo real (não precisa para testar em simulação):
 sounddevice>=0.4.6
 obsws-python>=1.7
