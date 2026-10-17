@@ -61,9 +61,8 @@ Não funcionou um? Tente o outro. O painel mostra o erro em vermelho embaixo da 
 3. Em `lugares`, ligue cada pessoa ao seu canal.
 
 ### Instalar o modo real
-Dê dois cliques em `iniciar_modo_real.bat`: ele instala as bibliotecas de áudio e OBS (`requirements.txt`) e inicia o programa.
-
-> Se aparecer erro de **"Microsoft Visual C++"**, o seu Python é novo demais para alguma biblioteca. Instale o **Python 3.13** e rode de novo.
+1. Dê dois cliques em `preparar_python.bat` (só na primeira vez). Ele confere seu Python, instala o **Python 3.13** se faltar (versões muito novas, como a 3.15, ainda não têm todas as bibliotecas), cria o ambiente `.venv` e instala as bibliotecas de áudio e OBS. Tudo fica registrado em `preparar_python.log`.
+2. Depois, use sempre `iniciar_modo_real.bat`.
 
 ### Gravar os presets
 1. Mude `simulacao = true` para `simulacao = false` no `config.toml` e rode `iniciar_modo_real.bat`.
@@ -88,7 +87,8 @@ Dê dois cliques em `iniciar_modo_real.bat`: ele instala as bibliotecas de áudi
 ```
 main.py              inicia tudo
 iniciar_simulacao.bat  teste com dois cliques (Windows)
-iniciar_modo_real.bat  instala e roda com equipamento (Windows)
+preparar_python.bat    instala Python 3.13 + bibliotecas do modo real (1ª vez)
+iniciar_modo_real.bat  roda com equipamento (Windows)
 config.toml          sua sala (câmeras, OBS, áudio, lugares)
 salaauto/visca.py    comandos PTZ (VISCA over IP)
 salaauto/obs.py      cenas, gravação e transmissão no OBS
